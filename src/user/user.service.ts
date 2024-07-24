@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { User } from './schemas/user.schema';
 
@@ -31,21 +32,8 @@ export class UserService {
     }
   }
 
-  async findUserByQuery(query: string): Promise<User> {
-    try {
-      const user = await this.userModel
-        .findOne({ $or: [{ email: query }, { name: query }] })
-        .exec();
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-      return user;
-    } catch (error) {
-      if (error.name === 'CastError') {
-        throw new BadRequestException('Invalid user ID format');
-      }
-      throw error;
-    }
+  async findUserByQuery(query: string): Promise<User[]> {
+    return this.userModel.find({ $text: { $search: query } }).exec();
   }
 
   async findAllUsersWithRole(role: string): Promise<User[]> {
@@ -53,7 +41,21 @@ export class UserService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const createdUser = new this.userModel(createUserDto);
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
+    const user = await this.findByEmail(createUserDto.email);
+    if (user) {
+      throw new BadRequestException('User already exists');
+    }
+    const createdUser = new this.userModel({
+      ...createUserDto,
+      password: hashedPassword,
+    });
     return createdUser.save();
+  }
+
+  async findByEmail(email: string): Promise<User | undefined> {
+    const user = await this.userModel.findOne({ email }).lean().exec();
+    return user || undefined;
   }
 }

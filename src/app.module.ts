@@ -8,8 +8,8 @@ import { AuthModule } from './auth/auth.module';
   imports: [
     MongooseModule.forRoot('mongodb://localhost/strong'),
     UserModule,
-    ExercisesModule,
     AuthModule,
+    ExercisesModule,
   ],
 })
 export class AppModule {}
