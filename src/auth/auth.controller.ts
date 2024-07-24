@@ -1,12 +1,16 @@
-import { Controller, Request, Post, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
-import { Request as ExpressRequest } from 'express';
+import { LoginDto } from './dtos/login.dto';
 
 @Controller('auth')
 export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
   @UseGuards(AuthGuard('local'))
   @Post('login')
-  async login(@Request() req: ExpressRequest) {
-    return req.user;
+  async login(@Body() loginDto: LoginDto) {
+    const { email, password } = loginDto;
+    return this.authService.login(email, password);
   }
 }
