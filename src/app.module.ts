@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { UserModule } from './user/user.module';
-import { ExercisesModule } from './exercises/exercises.module';
 import { AuthModule } from './auth/auth.module';
+import { UserModule } from './user/user.module';
+import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
+import { ExercisesModule } from './exercises/exercises.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot('mongodb://localhost/strong'),
-    UserModule,
     AuthModule,
+    UserModule,
     ExercisesModule,
+    PrismaModule,
   ],
 })
 export class AppModule {}

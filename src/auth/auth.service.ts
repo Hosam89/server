@@ -1,33 +1,67 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UserService } from '../user/user.service';
-import * as bcrypt from 'bcrypt';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { AuthDto } from './dto';
+import * as argon from 'argon2';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private userService: UserService,
-    private jwtService: JwtService,
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.userService.findByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
-      return result;
+  async signup(dto: AuthDto) {
+    const hash = await argon.hash(dto.password.toString());
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: dto.email as string,
+          hash,
+        },
+      });
+      return this.signTokern(user.id, user.email);
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        //The code P2002 is the code of the Error when a uniqe field is being used twice
+        if (error.code === 'P2002') {
+          throw new ForbiddenException('Credentail Taken');
+        }
+      }
+      throw error;
     }
-    return null;
   }
 
-  async login(email: string, password: string): Promise<any> {
-    const user = await this.validateUser(email, password);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    const payload = { email: user.email, sub: user._id };
+  async signin(dto: AuthDto) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email as string,
+      },
+    });
+
+    if (!user) throw new ForbiddenException('Credentials incorrect');
+    const pwMatchs = await argon.verify(user.hash, dto.password as string);
+    if (!pwMatchs) throw new ForbiddenException('Credentials incorrect');
+
+    return this.signTokern(user.id, user.email);
+  }
+
+  async signTokern(userId: number, email: string): Promise<{ access_token: string }> {
+    const payload = {
+      sub: userId,
+      email,
+    };
+    const token = await this.jwt.signAsync(payload, {
+      secret: this.config.get('JWT_SECRET'),
+      expiresIn: '40m',
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
-      user,
+      access_token: token,
     };
   }
 }

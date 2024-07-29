@@ -1,38 +1,15 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
-import { UserService } from './user.service';
-import { CreateUserDto } from './dtos/create-user.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { User } from '@prisma/client';
+import { GetUser } from 'src/auth/decorator';
+import { JwtGaurd } from 'src/auth/guard';
 
-@Controller('user')
+//the name of the guard is decleard in the jwt strategy
+@UseGuards(JwtGaurd)
+@Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
-
-  @UseGuards(AuthGuard('local'))
-  @Get()
-  async getAllUsers() {
-    return await this.userService.findAll();
-  }
-
-  @UseGuards(AuthGuard('local'))
-  @Get(':id')
-  async getUserById(@Param('id') id: string) {
-    return await this.userService.findById(id);
-  }
-
-  @UseGuards(AuthGuard('local'))
-  @Get('search/:query')
-  async getUserByQuery(@Param('query') query: string) {
-    return await this.userService.findUserByQuery(query);
-  }
-
-  @UseGuards(AuthGuard('local'))
-  @Get('role/:role')
-  async getUsersByRole(@Param('role') role: string) {
-    return await this.userService.findAllUsersWithRole(role);
-  }
-
-  @Post()
-  async createUser(@Body() createUserDto: CreateUserDto) {
-    return await this.userService.create(createUserDto);
+  //If the get is empty it will be the controller route
+  @Get('me')
+  getMe(@GetUser() user: User) {
+    return user;
   }
 }
